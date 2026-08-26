@@ -14,10 +14,16 @@ builder lives separately in
 
 Official tags are preserved at their original upstream commits. Adapted source
 releases follow the same version with an AArch64 revision suffix: for example,
-official `v4.0.1` corresponds to `v4.0.1-aarch64.1`. Pushing an adapted tag
-automatically publishes its GitHub Release. Upstream releases are reviewed and
-rebased deliberately before tagging; they are not merged into the VM runtime
-unattended.
+official `v4.0.1` corresponds to `v4.0.1-aarch64.1`.
+
+Scheduled automation treats the `omarchy` version already published in
+`pkgs.omarchy.org/stable` as the admission signal. It merges the matching
+official source tag, runs the CLI and applicable source/AArch64 tests, then
+publishes both the official tag/Release and its AArch64 adaptation. The
+cross-repository `omarchy-iso` assertion is intentionally excluded because this
+project does not consume the ISO. A merge conflict or test failure stops
+publication for human review. The package repository follows the adapted tag
+on its next scheduled synchronization.
 
 ## The Omarchy Manual
 

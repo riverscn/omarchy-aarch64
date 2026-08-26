@@ -1,0 +1,86 @@
+name: Sync official stable release
+
+on:
+  schedule:
+    - cron: '5 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: aarch64-source-stable-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: riverscn/omarchy-pkgs-aarch64
+          ref: master
+          path: .test/omarchy-pkgs-aarch64
+
+      - name: Install repository database tools
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+
+      - name: Adapt the official stable source release
+        id: stable
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ./.github/scripts/sync-official-stable --output "$GITHUB_OUTPUT"
+
+      - name: Test the adapted source
+        env:
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+          OMARCHY_PKGS_PATH: ${{ github.workspace }}/.test/omarchy-pkgs-aarch64
+        run: |
+          set -euo pipefail
+          ./test/cli
+          for test_file in test/shell.d/*-test.sh; do
+            case ${test_file##*/} in
+              # This file intentionally asserts against omarchy-iso too; the
+              # generic AArch64 source and image do not consume that project.
+              base-test.sh | snapper-test.sh) continue ;;
+            esac
+            bash "$test_file"
+          done
+
+      - name: Publish synchronized tags and source
+        env:
+          OFFICIAL_TAG: ${{ steps.stable.outputs.official_tag }}
+          ADAPTED_TAG: ${{ steps.stable.outputs.adapted_tag }}
+        run: git push --atomic origin HEAD:main "$OFFICIAL_TAG" "$ADAPTED_TAG"
+
+      - name: Publish the synchronized official Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OFFICIAL_TAG: ${{ steps.stable.outputs.official_tag }}
+        run: |
+          if ! gh release view "$OFFICIAL_TAG" >/dev/null 2>&1; then
+            gh release create "$OFFICIAL_TAG" \
+              --verify-tag \
+              --title "Omarchy ${OFFICIAL_TAG#v}" \
+              --notes "Synchronized from the upstream Omarchy release: https://github.com/basecamp/omarchy/releases/tag/${OFFICIAL_TAG}"
+          fi
+
+      - name: Publish the adapted AArch64 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OFFICIAL_TAG: ${{ steps.stable.outputs.official_tag }}
+          ADAPTED_TAG: ${{ steps.stable.outputs.adapted_tag }}
+        run: |
+          if ! gh release view "$ADAPTED_TAG" >/dev/null 2>&1; then
+            gh release create "$ADAPTED_TAG" \
+              --verify-tag \
+              --title "Omarchy AArch64 ${ADAPTED_TAG#v}" \
+              --notes "Generic AArch64 VM adaptation of upstream ${OFFICIAL_TAG}."
+          fi

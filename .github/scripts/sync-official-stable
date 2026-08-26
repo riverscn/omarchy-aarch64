@@ -1,0 +1,105 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+OFFICIAL_DB_URL=${OMARCHY_OFFICIAL_STABLE_DB_URL:-https://pkgs.omarchy.org/stable/x86_64/omarchy.db.tar.zst}
+OFFICIAL_DB_FILE=${OMARCHY_OFFICIAL_STABLE_DB_FILE:-}
+UPSTREAM_URL=${OMARCHY_UPSTREAM_URL:-https://github.com/basecamp/omarchy.git}
+OUTPUT_FILE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output) OUTPUT_FILE=$2; shift 2 ;;
+    *) echo "Usage: $0 [--output <github-output-file>]" >&2; exit 1 ;;
+  esac
+done
+
+temp_dir=$(mktemp -d)
+trap 'rm -rf "$temp_dir"' EXIT
+database="$temp_dir/omarchy.db.tar.zst"
+
+if [[ -n $OFFICIAL_DB_FILE ]]; then
+  cp "$OFFICIAL_DB_FILE" "$database"
+else
+  curl -fsSL --retry 3 --max-time 120 -o "$database" "$OFFICIAL_DB_URL"
+fi
+
+official_version=$(
+  bsdtar -xOf "$database" '*/desc' | awk '
+    $0 == "%NAME%" { getline; name=$0; next }
+    $0 == "%VERSION%" {
+      getline
+      if (name == "omarchy" && version == "") version=$0
+    }
+    END { print version }
+  '
+)
+[[ -n $official_version ]] || {
+  echo "ERROR: omarchy is absent from the official stable database" >&2
+  exit 1
+}
+
+pkgver=${official_version#*:}
+pkgver=${pkgver%-*}
+[[ $pkgver =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+  echo "ERROR: unsupported official stable version: $official_version" >&2
+  exit 1
+}
+
+official_tag="v$pkgver"
+if git -C "$ROOT" remote get-url upstream >/dev/null 2>&1; then
+  git -C "$ROOT" remote set-url upstream "$UPSTREAM_URL"
+else
+  git -C "$ROOT" remote add upstream "$UPSTREAM_URL"
+fi
+upstream_tag_ref="refs/upstream-stable-tags/$official_tag"
+git -C "$ROOT" fetch --quiet --force upstream \
+  "refs/tags/$official_tag:$upstream_tag_ref"
+
+git -C "$ROOT" rev-parse --verify "$upstream_tag_ref^{commit}" >/dev/null 2>&1 || {
+  echo "ERROR: official stable $official_version has no upstream $official_tag tag" >&2
+  exit 1
+}
+
+upstream_commit=$(git -C "$ROOT" rev-parse "$upstream_tag_ref^{commit}")
+if local_commit=$(git -C "$ROOT" rev-parse --verify "$official_tag^{commit}" 2>/dev/null); then
+  [[ $local_commit == "$upstream_commit" ]] || {
+    echo "ERROR: local $official_tag does not match upstream" >&2
+    exit 1
+  }
+fi
+# Preserve the upstream tag object itself (including an annotated tag), not only
+# its peeled commit, when mirroring the official stable tag to this fork.
+git -C "$ROOT" update-ref "refs/tags/$official_tag" \
+  "$(git -C "$ROOT" rev-parse "$upstream_tag_ref")"
+
+mapfile -t existing_tags < <(
+  git -C "$ROOT" tag --list "${official_tag}-aarch64.*" --sort=-v:refname
+)
+source_changed=false
+
+if (( ${#existing_tags[@]} > 0 )); then
+  adapted_tag=${existing_tags[0]}
+  adapted_commit=$(git -C "$ROOT" rev-parse "$adapted_tag^{commit}")
+  if ! git -C "$ROOT" merge-base --is-ancestor "$official_tag" "$adapted_commit"; then
+    echo "ERROR: $adapted_tag is not based on $official_tag" >&2
+    exit 1
+  fi
+  echo "Already adapted: $official_version as $adapted_tag"
+else
+  adapted_tag="${official_tag}-aarch64.1"
+  git -C "$ROOT" merge --no-edit --no-ff "$official_tag"
+  git -C "$ROOT" tag "$adapted_tag"
+  source_changed=true
+  echo "Adapted official stable $official_version as $adapted_tag"
+fi
+
+if [[ -n $OUTPUT_FILE ]]; then
+  {
+    printf 'official_version=%s\n' "$official_version"
+    printf 'official_tag=%s\n' "$official_tag"
+    printf 'adapted_tag=%s\n' "$adapted_tag"
+    printf 'source_changed=%s\n' "$source_changed"
+  } >> "$OUTPUT_FILE"
+fi
