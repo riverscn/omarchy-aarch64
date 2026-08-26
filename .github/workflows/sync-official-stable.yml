@@ -59,9 +59,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           OFFICIAL_TAG: ${{ steps.stable.outputs.official_tag }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          if ! gh release view "$OFFICIAL_TAG" >/dev/null 2>&1; then
+          if ! gh release view "$OFFICIAL_TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             gh release create "$OFFICIAL_TAG" \
+              --repo "$REPOSITORY" \
               --verify-tag \
               --title "Omarchy ${OFFICIAL_TAG#v}" \
               --notes "Synchronized from the upstream Omarchy release: https://github.com/basecamp/omarchy/releases/tag/${OFFICIAL_TAG}"
@@ -72,9 +74,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OFFICIAL_TAG: ${{ steps.stable.outputs.official_tag }}
           ADAPTED_TAG: ${{ steps.stable.outputs.adapted_tag }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          if ! gh release view "$ADAPTED_TAG" >/dev/null 2>&1; then
+          if ! gh release view "$ADAPTED_TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             gh release create "$ADAPTED_TAG" \
+              --repo "$REPOSITORY" \
               --verify-tag \
               --title "Omarchy AArch64 ${ADAPTED_TAG#v}" \
               --notes "Generic AArch64 VM adaptation of upstream ${OFFICIAL_TAG}."
