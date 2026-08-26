@@ -13,6 +13,8 @@ pacman_refresh="$ROOT/bin/omarchy-refresh-pacman"
 reinstall_packages="$ROOT/bin/omarchy-reinstall-pkgs"
 provision_owner="$ROOT/bin/omarchy-provision-owner"
 aarch64_limine="$ROOT/default/limine/limine.conf"
+aarch64_limine_defaults="$ROOT/default/limine/default.conf"
+uki_defaults="$ROOT/etc/limine-entry-tool.d/omarchy-uki.conf"
 
 grep -Fq 'aarch64 | arm64) node_arch=arm64' "$mise_work" ||
   fail "offline provisioning does not map AArch64 to Node's arm64 archive"
@@ -39,9 +41,17 @@ if grep -Fq 'hardware/bluetooth.sh' <<<"$virt_branch"; then
 fi
 pass "virtual AArch64 bypasses physical-machine hardware setup"
 
-grep -Eq 'cmdline: .* quiet splash .*initramfs_async=0' "$aarch64_limine" ||
-  fail "the native AArch64 Limine entry does not enable the Omarchy boot splash"
-pass "the native AArch64 Limine entry preserves the Omarchy boot experience"
+grep -Fxq 'ENABLE_UKI=yes' "$uki_defaults" ||
+  fail "the packaged Omarchy configuration does not enable UKIs"
+if grep -Eq '^(ENABLE_UKI|FIND_BOOTLOADERS)=' "$aarch64_limine_defaults"; then
+  fail "AArch64 boot defaults override Omarchy's packaged UKI or bootloader discovery policy"
+fi
+if grep -Eq '^[[:space:]]*(protocol: linux|path: boot\(\):/Image|module_path:)' "$aarch64_limine"; then
+  fail "AArch64 still carries a static kernel/initramfs Limine entry"
+fi
+grep -Fxq 'default_entry: 2' "$aarch64_limine" ||
+  fail "the Limine menu no longer follows the upstream Omarchy default entry"
+pass "AArch64 uses Omarchy's generated UKI boot entries and upstream Limine menu"
 
 grep -Fq '/usr/lib/systemd/system/power-profiles-daemon.service' "$service_setup" ||
   fail "virtual profiles cannot omit the physical-machine power service"
