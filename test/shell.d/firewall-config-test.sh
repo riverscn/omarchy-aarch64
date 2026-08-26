@@ -40,10 +40,15 @@ cat >"$stub_dir/systemctl" <<'STUB'
 printf 'systemctl %s\n' "$*" >>"$TEST_LOG"
 STUB
 
+cat >"$stub_dir/docker" <<'STUB'
+#!/bin/bash
+exit 0
+STUB
+
 chmod +x "$stub_dir"/*
 
 export TEST_LOG="$stub_dir/firewall.log"
-PATH="$stub_dir:$PATH" bash -eE -c 'source "$1"' bash "$ROOT/install/config/firewall.sh"
+PATH="$stub_dir:$PATH" OMARCHY_PATH="$ROOT" bash -eE -c 'source "$1"' bash "$ROOT/install/config/firewall.sh"
 
 grep -q '^ufw-docker install$' "$TEST_LOG" || fail "ufw-docker rules are installed"
 grep -q '^systemctl enable ufw$' "$TEST_LOG" || fail "ufw is enabled for next boot"

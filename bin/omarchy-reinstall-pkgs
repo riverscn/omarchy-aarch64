@@ -14,5 +14,30 @@ omarchy-refresh-pacman
 sudo env OMARCHY_UPDATE_PACMAN=1 pacman -Suu --noconfirm
 
 # Ensure all packages are installed
-mapfile -t packages < <(grep -v '^#' "$OMARCHY_PATH/install/omarchy-base.packages" | grep -v '^$')
+declare -A skipped_packages=()
+base_packages="${OMARCHY_BASE_PACKAGES:-$OMARCHY_PATH/install/omarchy-base.packages}"
+managed_packages="${OMARCHY_MANAGED_PACKAGES:-/etc/omarchy-aarch64/managed-packages}"
+profile_exclusions="${OMARCHY_PROFILE_EXCLUSIONS:-/etc/omarchy-aarch64/excluded-packages}"
+
+# Image-built packages do not live in the guest's ALARM repositories, so leave
+# their installed copies alone. A new image (or a future signed repository)
+# owns refreshing them.
+if [[ -r $managed_packages ]]; then
+  while IFS= read -r package; do
+    [[ -n $package ]] && skipped_packages[$package]=1
+  done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$managed_packages")
+fi
+
+# Keep the VM profile's hardware and application decisions intact too. This is
+# the runtime copy of the build profile, not a second hard-coded package list.
+if [[ -r $profile_exclusions ]]; then
+  while IFS= read -r package; do
+    [[ -n $package ]] && skipped_packages[$package]=1
+  done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$profile_exclusions")
+fi
+
+packages=()
+while IFS= read -r package; do
+  [[ -n ${skipped_packages[$package]:-} ]] || packages+=("$package")
+done < <(grep -v '^#' "$base_packages" | grep -v '^$')
 sudo env OMARCHY_UPDATE_PACMAN=1 pacman -Syu --noconfirm --needed "${packages[@]}"
