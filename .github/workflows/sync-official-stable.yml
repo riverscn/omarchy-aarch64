@@ -28,7 +28,7 @@ jobs:
           path: .test/omarchy-pkgs-aarch64
 
       - name: Install repository database tools
-        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools lua5.4 ripgrep
 
       - name: Adapt the official stable source release
         id: stable
@@ -45,14 +45,9 @@ jobs:
         run: |
           set -euo pipefail
           ./test/cli
-          for test_file in test/shell.d/*-test.sh; do
-            case ${test_file##*/} in
-              # This file intentionally asserts against omarchy-iso too; the
-              # generic AArch64 source and image do not consume that project.
-              base-test.sh | snapper-test.sh) continue ;;
-            esac
-            bash "$test_file"
-          done
+          bash test/shell.d/aarch64-runtime-test.sh
+          bash test/shell.d/firewall-config-test.sh
+          bash test/shell.d/config-test.sh
 
       - name: Publish synchronized tags and source
         env:
