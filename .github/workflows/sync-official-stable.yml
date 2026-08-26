@@ -16,12 +16,12 @@ jobs:
   sync:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: riverscn/omarchy-pkgs-aarch64
           ref: master
@@ -55,31 +55,35 @@ jobs:
           ADAPTED_TAG: ${{ steps.stable.outputs.adapted_tag }}
         run: git push --atomic origin HEAD:main "$OFFICIAL_TAG" "$ADAPTED_TAG"
 
-      - name: Publish the synchronized official Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OFFICIAL_TAG: ${{ steps.stable.outputs.official_tag }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          if ! gh release view "$OFFICIAL_TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$OFFICIAL_TAG" \
-              --repo "$REPOSITORY" \
-              --verify-tag \
-              --title "Omarchy ${OFFICIAL_TAG#v}" \
-              --notes "Synchronized from the upstream Omarchy release: https://github.com/basecamp/omarchy/releases/tag/${OFFICIAL_TAG}"
-          fi
-
-      - name: Publish the adapted AArch64 Release
+      - name: Publish synchronized Releases
         env:
           GH_TOKEN: ${{ github.token }}
           OFFICIAL_TAG: ${{ steps.stable.outputs.official_tag }}
           ADAPTED_TAG: ${{ steps.stable.outputs.adapted_tag }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          if ! gh release view "$ADAPTED_TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$ADAPTED_TAG" \
+          set -euo pipefail
+
+          publish_release() {
+            local tag=$1 title=$2 notes=$3
+
+            if gh release view "$tag" --repo "$REPOSITORY" >/dev/null 2>&1; then
+              echo "Release already exists: $tag"
+              return
+            fi
+
+            gh release create "$tag" \
               --repo "$REPOSITORY" \
               --verify-tag \
-              --title "Omarchy AArch64 ${ADAPTED_TAG#v}" \
-              --notes "Generic AArch64 VM adaptation of upstream ${OFFICIAL_TAG}."
-          fi
+              --title "$title" \
+              --notes "$notes"
+          }
+
+          publish_release \
+            "$OFFICIAL_TAG" \
+            "Omarchy ${OFFICIAL_TAG#v}" \
+            "Synchronized from the upstream Omarchy release: https://github.com/basecamp/omarchy/releases/tag/${OFFICIAL_TAG}"
+          publish_release \
+            "$ADAPTED_TAG" \
+            "Omarchy AArch64 ${ADAPTED_TAG#v}" \
+            "Generic AArch64 VM adaptation of upstream ${OFFICIAL_TAG}."
