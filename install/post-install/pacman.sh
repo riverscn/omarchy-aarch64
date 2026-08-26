@@ -1,6 +1,7 @@
-# Configure pacman after package installation completes. AArch64 images use
-# Arch Linux ARM directly and intentionally have no Omarchy binary repository;
-# their Omarchy packages are built from source and baked into each image.
+# Configure pacman after package installation completes. AArch64 uses Arch
+# Linux ARM for its distribution repositories. The image layer adds the signed
+# Omarchy AArch64 repository as a separate include and preserves that include
+# through its pre-refresh-pacman hook.
 case $(uname -m) in
   aarch64 | arm64)
     pacman_config=pacman-aarch64.conf
