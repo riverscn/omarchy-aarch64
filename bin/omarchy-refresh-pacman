@@ -6,19 +6,42 @@
 sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
 sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 
-if [[ -f /etc/omarchy-aarch64/profile ]]; then
-  echo "Refreshing the Arch Linux ARM repositories"
+channel="${1:-stable}"
+
+if [[ $channel != "stable" && $channel != "rc" && $channel != "edge" ]]; then
+  echo "Error: Invalid channel '$channel'. Must be one of: stable, rc, edge"
+  exit 1
+fi
+
+source "$OMARCHY_PATH/default/pacman/omarchy-aarch64.sh"
+
+if omarchy_aarch64_active; then
+  repository_url=$(omarchy_aarch64_repository_url "$channel") || {
+    echo "Error: The AArch64 repository mapping for '$channel' is missing or invalid." >&2
+    exit 1
+  }
+  repository_stage=$(mktemp)
+  trap 'rm -f "$repository_stage"' EXIT
+
+  echo "Setting AArch64 package channel to $channel"
   echo
+
   sudo cp -f "$OMARCHY_PATH/default/pacman/pacman-aarch64.conf" /etc/pacman.conf
   sudo cp -f "$OMARCHY_PATH/default/pacman/mirrorlist-aarch64" /etc/pacman.d/mirrorlist
-else
-  channel="${1:-stable}"
 
-  if [[ $channel != "stable" && $channel != "rc" && $channel != "edge" ]]; then
-    echo "Error: Invalid channel '$channel'. Must be one of: stable, rc, edge"
-    exit 1
+  cat >"$repository_stage" <<EOF
+# Managed by Omarchy AArch64.
+[omarchy]
+SigLevel = Required
+Server = $repository_url
+EOF
+  sudo install -Dm644 "$repository_stage" "$OMARCHY_AARCH64_REPOSITORY"
+
+  include='Include = /etc/pacman.d/omarchy-aarch64.conf'
+  if ! grep -qxF "$include" /etc/pacman.conf; then
+    sudo sed -i "0,/^\[core\]/s||$include\n\n[core]|" /etc/pacman.conf
   fi
-
+else
   echo "Setting channel to $channel"
   echo
 
