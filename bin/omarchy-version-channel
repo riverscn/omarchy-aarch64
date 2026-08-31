@@ -2,6 +2,13 @@
 
 # omarchy:summary=Print the active Omarchy mirror and package channel
 
+source "$OMARCHY_PATH/default/pacman/omarchy-aarch64.sh"
+
+if omarchy_aarch64_active; then
+  omarchy_aarch64_active_channel || echo unknown
+  exit 0
+fi
+
 if grep -q "https://stable-mirror.omarchy.org/" /etc/pacman.d/mirrorlist; then
   mirror="stable"
 elif grep -q "https://rc-mirror.omarchy.org/" /etc/pacman.d/mirrorlist; then
@@ -14,6 +21,8 @@ fi
 
 if grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf; then
   pkgs="stable"
+elif grep -q "https://pkgs.omarchy.org/rc/" /etc/pacman.conf; then
+  pkgs="rc"
 elif grep -q "https://pkgs.omarchy.org/edge/" /etc/pacman.conf; then
   pkgs="edge"
 else

@@ -6,6 +6,13 @@
 
 set -euo pipefail
 
+aarch64_helper="$OMARCHY_PATH/default/pacman/omarchy-aarch64.sh"
+if [[ -f $aarch64_helper ]]; then
+  source "$aarch64_helper"
+else
+  omarchy_aarch64_active() { return 1; }
+fi
+
 usage() { echo "Usage: omarchy-channel-set [stable|rc|edge|dev]"; }
 fail() { echo "Error: $*" >&2; exit 1; }
 
@@ -34,7 +41,17 @@ validate_dev_checkout() {
 
 link_dev_checkout() {
   local checkout="$1"
-  [[ -d $checkout/.git ]] || git clone https://github.com/basecamp/omarchy.git "$checkout"
+  local source_url=https://github.com/basecamp/omarchy.git
+  local source_branch
+  local -a clone_args=()
+
+  if omarchy_aarch64_active; then
+    source_url=$(omarchy_aarch64_config_value source_url) || fail "The AArch64 source URL is missing or invalid."
+    source_branch=$(omarchy_aarch64_config_value source_branch) || fail "The AArch64 source branch is missing or invalid."
+    clone_args=(--branch "$source_branch" --single-branch)
+  fi
+
+  [[ -d $checkout/.git ]] || git clone "${clone_args[@]}" "$source_url" "$checkout"
 
   omarchy-dev-link "$checkout" --no-reboot
 }
