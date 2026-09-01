@@ -10,6 +10,10 @@ hardware_setup="$ROOT/install/hardware/all.sh"
 service_setup="$ROOT/install/config/enable-services.sh"
 aur_update="$ROOT/bin/omarchy-update-aur-pkgs"
 pacman_refresh="$ROOT/bin/omarchy-refresh-pacman"
+channel_version="$ROOT/bin/omarchy-version-channel"
+channel_set="$ROOT/bin/omarchy-channel-set"
+repositories="$ROOT/default/pacman/omarchy-aarch64-repositories.conf"
+channel_migration="$ROOT/migrations/1788141968.sh"
 reinstall_packages="$ROOT/bin/omarchy-reinstall-pkgs"
 provision_owner="$ROOT/bin/omarchy-provision-owner"
 aarch64_limine="$ROOT/default/limine/limine.conf"
@@ -59,8 +63,22 @@ grep -Fq '/etc/omarchy-aarch64/managed-packages' "$aur_update" ||
   fail "AUR updates do not protect image-managed packages"
 grep -Fq -- '--ignore "$ignore_csv"' "$aur_update" ||
   fail "the managed package exclusion is not passed to yay"
-grep -Fq 'pacman-aarch64.conf' "$pacman_refresh" ||
-  fail "refreshing pacman would replace ALARM with an x86 Omarchy channel"
+grep -Fq 'omarchy_aarch64_repository_url "$channel"' "$pacman_refresh" ||
+  fail "refreshing pacman does not map the selected AArch64 package channel"
+for channel in stable rc edge; do
+  grep -Eq "^${channel}=.*/aarch64-${channel}$" "$repositories" ||
+    fail "the AArch64 $channel repository is not channel-isolated"
+done
+grep -Fq 'omarchy_aarch64_active_channel' "$channel_version" ||
+  fail "the active AArch64 repository cannot be reported as an Omarchy channel"
+grep -Fq 'source_branch=quattro' "$repositories" ||
+  fail "the AArch64 dev checkout has no adapted source branch"
+grep -Fq 'clone_args=(--branch "$source_branch" --single-branch)' "$channel_set" ||
+  fail "the AArch64 dev channel still clones the unadapted upstream branch"
+grep -Fq 'active_channel=${active_channel:-stable}' "$channel_migration" ||
+  fail "the AArch64 channel migration does not safely default legacy users to stable"
+grep -Fq 'releases/latest/download' "$channel_migration" ||
+  fail "the AArch64 channel migration does not recognize the legacy stable endpoint"
 grep -Fq 'managed-packages' "$reinstall_packages" ||
   fail "reinstalling defaults requests unavailable image-built packages"
 grep -Fq 'OMARCHY_PROFILE_EXCLUSIONS:-/etc/omarchy-aarch64/excluded-packages' "$reinstall_packages" ||

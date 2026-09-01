@@ -12,6 +12,15 @@ branch is based on reviewed official releases from
 builder lives separately in
 [`riverscn/omarchy-aarch64-image`](https://github.com/riverscn/omarchy-aarch64-image).
 
+The fork keeps three source-branch roles. `main` is the stable integration line
+and contains each reviewed official release plus its AArch64 adaptation.
+`quattro` follows `upstream/quattro` with the same adaptation and is the only
+source checkout used by the `dev` update channel. A versioned branch such as
+`v4-0-2` exists only while that upstream release line needs candidates or
+backports. Stable, rc, edge, and dev are update/package states; they are not
+parallel long-lived AArch64 Git branches. Temporary integration branches are
+deleted after their commits reach the corresponding canonical branch.
+
 Official tags are preserved at their original upstream commits. Adapted source
 releases follow the same version with an AArch64 revision suffix: for example,
 official `v4.0.1` corresponds to `v4.0.1-aarch64.1`.
