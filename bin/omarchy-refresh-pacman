@@ -13,11 +13,41 @@ if [[ $channel != "stable" && $channel != "rc" && $channel != "edge" ]]; then
   exit 1
 fi
 
-echo "Setting channel to $channel"
-echo
+source "$OMARCHY_PATH/default/pacman/omarchy-aarch64.sh"
 
-sudo cp -f "$OMARCHY_PATH/default/pacman/pacman-$channel.conf" /etc/pacman.conf
-sudo cp -f "$OMARCHY_PATH/default/pacman/mirrorlist-$channel" /etc/pacman.d/mirrorlist
+if omarchy_aarch64_active; then
+  repository_url=$(omarchy_aarch64_repository_url "$channel") || {
+    echo "Error: The AArch64 repository mapping for '$channel' is missing or invalid." >&2
+    exit 1
+  }
+  repository_stage=$(mktemp)
+  trap 'rm -f "$repository_stage"' EXIT
+
+  echo "Setting AArch64 package channel to $channel"
+  echo
+
+  sudo cp -f "$OMARCHY_PATH/default/pacman/pacman-aarch64.conf" /etc/pacman.conf
+  sudo cp -f "$OMARCHY_PATH/default/pacman/mirrorlist-aarch64" /etc/pacman.d/mirrorlist
+
+  cat >"$repository_stage" <<EOF
+# Managed by Omarchy AArch64.
+[omarchy]
+SigLevel = Required
+Server = $repository_url
+EOF
+  sudo install -Dm644 "$repository_stage" "$OMARCHY_AARCH64_REPOSITORY"
+
+  include='Include = /etc/pacman.d/omarchy-aarch64.conf'
+  if ! grep -qxF "$include" /etc/pacman.conf; then
+    sudo sed -i "0,/^\[core\]/s||$include\n\n[core]|" /etc/pacman.conf
+  fi
+else
+  echo "Setting channel to $channel"
+  echo
+
+  sudo cp -f "$OMARCHY_PATH/default/pacman/pacman-$channel.conf" /etc/pacman.conf
+  sudo cp -f "$OMARCHY_PATH/default/pacman/mirrorlist-$channel" /etc/pacman.d/mirrorlist
+fi
 
 # Allow user customization of /etc/pacman.conf before the upgrade runs
 omarchy-hook pre-refresh-pacman
