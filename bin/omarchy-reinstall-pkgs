@@ -15,9 +15,10 @@ sudo env OMARCHY_UPDATE_PACMAN=1 pacman -Suu --noconfirm
 
 # Ensure all packages are installed
 declare -A skipped_packages=()
+declare -A package_replacements=()
 base_packages="${OMARCHY_BASE_PACKAGES:-$OMARCHY_PATH/install/omarchy-base.packages}"
-managed_packages="${OMARCHY_MANAGED_PACKAGES:-/etc/omarchy-aarch64/managed-packages}"
 profile_exclusions="${OMARCHY_PROFILE_EXCLUSIONS:-}"
+profile_replacements="${OMARCHY_PROFILE_REPLACEMENTS:-}"
 if [[ -z $profile_exclusions ]]; then
   if [[ -r /usr/share/omarchy/system/excluded-packages ]]; then
     profile_exclusions=/usr/share/omarchy/system/excluded-packages
@@ -25,14 +26,22 @@ if [[ -z $profile_exclusions ]]; then
     profile_exclusions=/etc/omarchy-aarch64/excluded-packages
   fi
 fi
+if [[ -z $profile_replacements ]]; then
+  if [[ -r /usr/share/omarchy/system/package-replacements ]]; then
+    profile_replacements=/usr/share/omarchy/system/package-replacements
+  else
+    profile_replacements=/etc/omarchy-aarch64/package-replacements
+  fi
+fi
 
-# Image-built packages do not live in the guest's ALARM repositories, so leave
-# their installed copies alone. A new image (or a future signed repository)
-# owns refreshing them.
-if [[ -r $managed_packages ]]; then
-  while IFS= read -r package; do
-    [[ -n $package ]] && skipped_packages[$package]=1
-  done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$managed_packages")
+if [[ -r $profile_replacements ]]; then
+  while read -r package replacement extra; do
+    if [[ -z $package || -z $replacement || -n ${extra:-} ]]; then
+      echo "Invalid package replacement in $profile_replacements" >&2
+      exit 1
+    fi
+    package_replacements[$package]=$replacement
+  done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$profile_replacements")
 fi
 
 # Keep the VM profile's hardware and application decisions intact too. New
@@ -46,6 +55,6 @@ fi
 
 packages=()
 while IFS= read -r package; do
-  [[ -n ${skipped_packages[$package]:-} ]] || packages+=("$package")
+  [[ -n ${skipped_packages[$package]:-} ]] || packages+=("${package_replacements[$package]:-$package}")
 done < <(grep -v '^#' "$base_packages" | grep -v '^$')
 sudo env OMARCHY_UPDATE_PACMAN=1 pacman -Syu --noconfirm --needed "${packages[@]}"

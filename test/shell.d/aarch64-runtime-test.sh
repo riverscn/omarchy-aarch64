@@ -63,10 +63,9 @@ pass "AArch64 uses Omarchy's generated UKI boot entries and upstream Limine menu
 
 grep -Fq '/usr/lib/systemd/system/power-profiles-daemon.service' "$service_setup" ||
   fail "virtual profiles cannot omit the physical-machine power service"
-grep -Fq '/etc/omarchy-aarch64/managed-packages' "$aur_update" ||
-  fail "AUR updates do not protect image-managed packages"
-grep -Fq -- '--ignore "$ignore_csv"' "$aur_update" ||
-  fail "the managed package exclusion is not passed to yay"
+if grep -Fq 'omarchy-aarch64' "$aur_update"; then
+  fail "AUR updates retain an unnecessary downstream package exception"
+fi
 grep -Fq 'omarchy_aarch64_repository_url "$channel"' "$pacman_refresh" ||
   fail "refreshing pacman does not map the selected AArch64 package channel"
 for channel in stable rc edge; do
@@ -87,11 +86,51 @@ grep -Fq "grep -qx 'source_branch=aarch64-quattro'" "$profile_migration" ||
   fail "the runtime migration can rewrite custom source branches"
 grep -Fq 'omarchy-pkg-add omarchy-aarch64-config' "$profile_migration" ||
   fail "existing AArch64 users do not receive the managed runtime profile"
-grep -Fq 'managed-packages' "$reinstall_packages" ||
-  fail "reinstalling defaults requests unavailable image-built packages"
 grep -Fq '/usr/share/omarchy/system/excluded-packages' "$reinstall_packages" ||
   fail "reinstalling defaults ignores updated package-managed profile exclusions"
+grep -Fq '/usr/share/omarchy/system/package-replacements' "$reinstall_packages" ||
+  fail "reinstalling defaults ignores package-name replacements"
+grep -Fq 'package_replacements[$package]' "$reinstall_packages" ||
+  fail "reinstalling defaults does not apply package-name replacements"
 grep -Fq 'if o.cmd_present("powerprofilesctl") then' \
   "$ROOT/default/hypr/autostart.lua" ||
   fail "the VM still starts a power-profile service it deliberately omits"
-pass "virtual images keep repository and image-managed package boundaries during updates"
+pass "virtual images keep package exclusions and replacements during updates"
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+mkdir -p "$work/bin"
+cat >"$work/base.packages" <<'PACKAGES'
+keep-me
+replace-me
+skip-me
+PACKAGES
+printf '%s\n' skip-me >"$work/excluded-packages"
+printf '%s\n' 'replace-me replacement-package' >"$work/package-replacements"
+cat >"$work/bin/omarchy-refresh-pacman" <<'SH'
+#!/bin/bash
+:
+SH
+cat >"$work/bin/sudo" <<'SH'
+#!/bin/bash
+exec "$@"
+SH
+cat >"$work/bin/pacman" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >>"$OMARCHY_REINSTALL_TEST_LOG"
+SH
+chmod +x "$work/bin/omarchy-refresh-pacman" "$work/bin/sudo" "$work/bin/pacman"
+
+OMARCHY_BASE_PACKAGES="$work/base.packages" \
+  OMARCHY_PROFILE_EXCLUSIONS="$work/excluded-packages" \
+  OMARCHY_PROFILE_REPLACEMENTS="$work/package-replacements" \
+  OMARCHY_REINSTALL_TEST_LOG="$work/pacman.log" \
+  PATH="$work/bin:$PATH" \
+  bash "$reinstall_packages"
+
+install_args=$(tail -n 1 "$work/pacman.log")
+[[ $install_args == *"keep-me replacement-package"* ]] ||
+  fail "reinstalling defaults did not install the resolved package list"
+[[ $install_args != *"replace-me"* && $install_args != *"skip-me"* ]] ||
+  fail "reinstalling defaults retained an excluded or replaced package name"
+pass "default-package reinstall applies the external package policy"

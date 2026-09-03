@@ -2,19 +2,10 @@
 
 # omarchy:summary=Update AUR packages if any are installed
 
-ignore_packages=(gcc14 gcc14-libs)
-managed_packages=/etc/omarchy-aarch64/managed-packages
-if [[ -r $managed_packages ]]; then
-  while IFS= read -r package; do
-    [[ -n $package ]] && ignore_packages+=("$package")
-  done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$managed_packages")
-fi
-ignore_csv=$(IFS=,; echo "${ignore_packages[*]}")
-
 if pacman -Qem >/dev/null; then
   if omarchy-pkg-aur-accessible; then
     echo -e "\e[32m\nUpdate AUR packages\e[0m"
-    yay -Sua --noconfirm --cleanafter --ignore "$ignore_csv"
+    yay -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs
     echo
   else
     echo -e "\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
