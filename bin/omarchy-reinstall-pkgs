@@ -14,5 +14,47 @@ omarchy-refresh-pacman
 sudo env OMARCHY_UPDATE_PACMAN=1 pacman -Suu --noconfirm
 
 # Ensure all packages are installed
-mapfile -t packages < <(grep -v '^#' "$OMARCHY_PATH/install/omarchy-base.packages" | grep -v '^$')
+declare -A skipped_packages=()
+declare -A package_replacements=()
+base_packages="${OMARCHY_BASE_PACKAGES:-$OMARCHY_PATH/install/omarchy-base.packages}"
+profile_exclusions="${OMARCHY_PROFILE_EXCLUSIONS:-}"
+profile_replacements="${OMARCHY_PROFILE_REPLACEMENTS:-}"
+if [[ -z $profile_exclusions ]]; then
+  if [[ -r /usr/share/omarchy/system/excluded-packages ]]; then
+    profile_exclusions=/usr/share/omarchy/system/excluded-packages
+  else
+    profile_exclusions=/etc/omarchy-aarch64/excluded-packages
+  fi
+fi
+if [[ -z $profile_replacements ]]; then
+  if [[ -r /usr/share/omarchy/system/package-replacements ]]; then
+    profile_replacements=/usr/share/omarchy/system/package-replacements
+  else
+    profile_replacements=/etc/omarchy-aarch64/package-replacements
+  fi
+fi
+
+if [[ -r $profile_replacements ]]; then
+  while read -r package replacement extra; do
+    if [[ -z $package || -z $replacement || -n ${extra:-} ]]; then
+      echo "Invalid package replacement in $profile_replacements" >&2
+      exit 1
+    fi
+    package_replacements[$package]=$replacement
+  done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$profile_replacements")
+fi
+
+# Keep the VM profile's hardware and application decisions intact too. New
+# policy comes from the signed runtime-profile package; the /etc copy remains a
+# compatibility fallback for images released before that package existed.
+if [[ -r $profile_exclusions ]]; then
+  while IFS= read -r package; do
+    [[ -n $package ]] && skipped_packages[$package]=1
+  done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$profile_exclusions")
+fi
+
+packages=()
+while IFS= read -r package; do
+  [[ -n ${skipped_packages[$package]:-} ]] || packages+=("${package_replacements[$package]:-$package}")
+done < <(grep -v '^#' "$base_packages" | grep -v '^$')
 sudo env OMARCHY_UPDATE_PACMAN=1 pacman -Syu --noconfirm --needed "${packages[@]}"

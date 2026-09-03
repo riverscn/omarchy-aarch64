@@ -1,3 +1,12 @@
+if [[ ${OMARCHY_HARDWARE_PROFILE:-} == "aarch64-virt" ]] || {
+  [[ $(uname -m) == "aarch64" || $(uname -m) == "arm64" ]] &&
+    systemd-detect-virt --vm --quiet 2>/dev/null
+}; then
+  run_logged "$OMARCHY_INSTALL/hardware/network.sh"
+  run_logged "$OMARCHY_INSTALL/hardware/virtual-machine.sh"
+  return 0
+fi
+
 run_logged "$OMARCHY_INSTALL/hardware/asus-rog.sh"
 run_logged "$OMARCHY_INSTALL/hardware/framework16.sh"
 run_logged "$OMARCHY_INSTALL/hardware/dell-xps-touchpad-haptics.sh"

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# omarchy-refresh-pacman replaces /etc/pacman.conf from a clean template.
+# Keep the separately signed AArch64 package repository in that configuration.
+set -euo pipefail
+
+readonly CONF=/etc/pacman.conf
+readonly INCLUDE='Include = /etc/pacman.d/omarchy-aarch64.conf'
+
+grep -qxF "$INCLUDE" "$CONF" && exit 0
+sudo sed -i "0,/^\[core\]/s||$INCLUDE\n\n[core]|" "$CONF"
