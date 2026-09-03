@@ -14,6 +14,7 @@ channel_version="$ROOT/bin/omarchy-version-channel"
 channel_set="$ROOT/bin/omarchy-channel-set"
 repositories="$ROOT/default/pacman/omarchy-aarch64-repositories.conf"
 channel_migration="$ROOT/migrations/1788141968.sh"
+profile_migration="$ROOT/migrations/1788402490.sh"
 reinstall_packages="$ROOT/bin/omarchy-reinstall-pkgs"
 provision_owner="$ROOT/bin/omarchy-provision-owner"
 aarch64_limine="$ROOT/default/limine/limine.conf"
@@ -40,6 +41,9 @@ grep -Fq 'OMARCHY_HARDWARE_PROFILE:-} == "aarch64-virt"' "$hardware_setup" ||
 grep -Fq 'hardware/virtual-machine.sh' "$hardware_setup" ||
   fail "virtual AArch64 setup does not enable guest integration"
 virt_branch=$(sed -n '1,/^fi$/p' "$hardware_setup")
+if grep -Fq 'hardware/input-group.sh' <<<"$virt_branch"; then
+  fail "virtual AArch64 setup restores the retired input-group grant"
+fi
 if grep -Fq 'hardware/bluetooth.sh' <<<"$virt_branch"; then
   fail "virtual AArch64 setup still enables physical Bluetooth hardware"
 fi
@@ -79,8 +83,25 @@ grep -Fq 'active_channel=${active_channel:-stable}' "$channel_migration" ||
   fail "the AArch64 channel migration does not safely default legacy users to stable"
 grep -Fq 'releases/latest/download' "$channel_migration" ||
   fail "the AArch64 channel migration does not recognize the legacy stable endpoint"
+grep -Fq "grep -qx 'source_branch=aarch64-quattro'" "$profile_migration" ||
+  fail "the runtime migration can rewrite custom source branches"
+grep -Fq 'omarchy-pkg-add omarchy-aarch64-config' "$profile_migration" ||
+  fail "existing AArch64 users do not receive the managed runtime profile"
 grep -Fq 'managed-packages' "$reinstall_packages" ||
   fail "reinstalling defaults requests unavailable image-built packages"
-grep -Fq 'OMARCHY_PROFILE_EXCLUSIONS:-/etc/omarchy-aarch64/excluded-packages' "$reinstall_packages" ||
-  fail "reinstalling defaults would undo the VM profile's package exclusions"
+grep -Fq '/usr/share/omarchy/system/excluded-packages' "$reinstall_packages" ||
+  fail "reinstalling defaults ignores updated package-managed profile exclusions"
 pass "virtual images keep profile and image-managed package boundaries during updates"
+
+grep -Fq 'systemMenuPath: "/usr/share/omarchy/system/omarchy-menu.jsonc"' \
+  "$ROOT/shell/plugins/menu/Menu.qml" ||
+  fail "the shell cannot load a package-managed menu profile"
+grep -Fq 'require_optional.module("omarchy.system.hyprland")' \
+  "$ROOT/default/hypr/omarchy.lua" ||
+  fail "Hyprland cannot load package-managed profile policy"
+grep -Fq 'if o.cmd_present("powerprofilesctl") then' \
+  "$ROOT/default/hypr/autostart.lua" ||
+  fail "the VM still starts a power-profile service it deliberately omits"
+grep -Fq 'omarchy-apply-system-profile' "$ROOT/bin/omarchy-refresh-shell" ||
+  fail "resetting shell defaults discards package-managed profile policy"
+pass "system profile policy remains layered below user configuration"

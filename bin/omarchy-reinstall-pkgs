@@ -17,7 +17,14 @@ sudo env OMARCHY_UPDATE_PACMAN=1 pacman -Suu --noconfirm
 declare -A skipped_packages=()
 base_packages="${OMARCHY_BASE_PACKAGES:-$OMARCHY_PATH/install/omarchy-base.packages}"
 managed_packages="${OMARCHY_MANAGED_PACKAGES:-/etc/omarchy-aarch64/managed-packages}"
-profile_exclusions="${OMARCHY_PROFILE_EXCLUSIONS:-/etc/omarchy-aarch64/excluded-packages}"
+profile_exclusions="${OMARCHY_PROFILE_EXCLUSIONS:-}"
+if [[ -z $profile_exclusions ]]; then
+  if [[ -r /usr/share/omarchy/system/excluded-packages ]]; then
+    profile_exclusions=/usr/share/omarchy/system/excluded-packages
+  else
+    profile_exclusions=/etc/omarchy-aarch64/excluded-packages
+  fi
+fi
 
 # Image-built packages do not live in the guest's ALARM repositories, so leave
 # their installed copies alone. A new image (or a future signed repository)
@@ -28,8 +35,9 @@ if [[ -r $managed_packages ]]; then
   done < <(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$managed_packages")
 fi
 
-# Keep the VM profile's hardware and application decisions intact too. This is
-# the runtime copy of the build profile, not a second hard-coded package list.
+# Keep the VM profile's hardware and application decisions intact too. New
+# policy comes from the signed runtime-profile package; the /etc copy remains a
+# compatibility fallback for images released before that package existed.
 if [[ -r $profile_exclusions ]]; then
   while IFS= read -r package; do
     [[ -n $package ]] && skipped_packages[$package]=1

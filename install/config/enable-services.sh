@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Enable services only. Installs are followed by reboot, so don't start/reload
 # daemons mid-install. UFW and hardware-gated services stay in their own scripts.
 systemctl enable cups.service

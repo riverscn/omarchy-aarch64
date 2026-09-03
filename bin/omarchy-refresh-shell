@@ -7,5 +7,6 @@ set -euo pipefail
 
 omarchy-refresh-config omarchy/shell.json
 omarchy-bar defaults
+omarchy-apply-system-profile
 
 omarchy-restart-shell

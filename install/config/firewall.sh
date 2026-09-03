@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Allow nothing in, everything out.
 ufw default deny incoming
 ufw default allow outgoing
@@ -8,13 +6,15 @@ ufw default allow outgoing
 ufw allow 53317/udp
 ufw allow 53317/tcp
 
-# Allow Docker containers to use DNS on the host.
+# Allow Docker containers to use DNS on host.
 ufw allow in proto udp from 172.16.0.0/12 to 172.17.0.1 port 53 comment 'allow-docker-dns'
 ufw allow in proto udp from 192.168.0.0/16 to 172.17.0.1 port 53 comment 'allow-docker-dns'
 
-# ufw-docker refuses to install its after.rules block unless UFW is already
-# active. During image finalization the target chroot shares the builder's live
-# kernel firewall, so satisfy that preflight without activating the live UFW.
+# Turn on Docker protections. ufw-docker refuses to install its after.rules
+# block unless UFW is already active, but during ISO finalization the target
+# chroot shares the live installer's kernel firewall. Keep the live firewall
+# untouched: for this config-file-only install action, satisfy ufw-docker's
+# status preflight without activating UFW.
 install_ufw_docker_rules() {
   local shim_dir status ufw_docker_bin
 
