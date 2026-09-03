@@ -91,17 +91,7 @@ grep -Fq 'managed-packages' "$reinstall_packages" ||
   fail "reinstalling defaults requests unavailable image-built packages"
 grep -Fq '/usr/share/omarchy/system/excluded-packages' "$reinstall_packages" ||
   fail "reinstalling defaults ignores updated package-managed profile exclusions"
-pass "virtual images keep profile and image-managed package boundaries during updates"
-
-grep -Fq 'systemMenuPath: "/usr/share/omarchy/system/omarchy-menu.jsonc"' \
-  "$ROOT/shell/plugins/menu/Menu.qml" ||
-  fail "the shell cannot load a package-managed menu profile"
-grep -Fq 'require_optional.module("omarchy.system.hyprland")' \
-  "$ROOT/default/hypr/omarchy.lua" ||
-  fail "Hyprland cannot load package-managed profile policy"
 grep -Fq 'if o.cmd_present("powerprofilesctl") then' \
   "$ROOT/default/hypr/autostart.lua" ||
   fail "the VM still starts a power-profile service it deliberately omits"
-grep -Fq 'omarchy-apply-system-profile' "$ROOT/bin/omarchy-refresh-shell" ||
-  fail "resetting shell defaults discards package-managed profile policy"
-pass "system profile policy remains layered below user configuration"
+pass "virtual images keep repository and image-managed package boundaries during updates"

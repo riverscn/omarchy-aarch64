@@ -6,13 +6,12 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-mkdir -p "$work/bin" "$work/home/.config/omarchy" "$work/profile"
+mkdir -p "$work/bin" "$work/home/.config/omarchy"
 
 profile_marker="$work/profile-marker"
 repositories="$work/repositories.conf"
 repository="$work/repository.conf"
 package_log="$work/package.log"
-shell_config="$work/home/.config/omarchy/shell.json"
 
 touch "$profile_marker"
 cat >"$repositories" <<'CONF'
@@ -22,13 +21,6 @@ edge=https://example.invalid/edge
 source_url=https://example.invalid/source.git
 source_branch=aarch64-quattro
 CONF
-cat >"$shell_config" <<'JSON'
-{"custom":"kept"}
-JSON
-cat >"$work/profile/shell-defaults.jq" <<'JQ'
-.profileApplied = true
-JQ
-
 cat >"$work/bin/sudo" <<'SH'
 #!/bin/bash
 exec "$@"
@@ -45,8 +37,6 @@ run_migration() {
     OMARCHY_AARCH64_PROFILE="$profile_marker" \
     OMARCHY_AARCH64_REPOSITORIES="$repositories" \
     OMARCHY_AARCH64_REPOSITORY="$repository" \
-    OMARCHY_SYSTEM_PROFILE_DIR="$work/profile" \
-    OMARCHY_SHELL_CONFIG="$shell_config" \
     OMARCHY_PROFILE_TEST_PACKAGE_LOG="$package_log" \
     PATH="$work/bin:$ROOT/bin:$PATH" \
     bash "$ROOT/migrations/1788402490.sh" >/dev/null
@@ -60,9 +50,7 @@ if grep -Fq 'source_branch=aarch64-quattro' "$repositories"; then
 fi
 grep -Fxq 'omarchy-aarch64-config' "$package_log" ||
   fail "AArch64 profile migration did not install the managed profile package"
-jq -e '.custom == "kept" and .profileApplied == true' "$shell_config" >/dev/null ||
-  fail "AArch64 profile migration did not apply the managed shell policy"
-pass "AArch64 profile migration normalizes legacy state and applies managed policy"
+pass "AArch64 profile migration normalizes legacy state and installs repository policy"
 
 sed -i 's/^source_branch=quattro$/source_branch=administrator-fork/' "$repositories"
 : >"$package_log"

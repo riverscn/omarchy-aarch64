@@ -18,9 +18,5 @@ require("default.hypr.looknfeel")
 require("default.hypr.input")
 require("default.hypr.windows")
 
--- Optional machine/profile policy supplied by a system package. It loads after
--- Omarchy defaults and before the user's modules in config/hypr/hyprland.lua.
-require_optional.module("omarchy.system.hyprland")
-
 -- Current theme overrides.
 require_optional.module("omarchy.current.theme.hyprland")

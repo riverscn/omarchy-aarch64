@@ -1,4 +1,4 @@
-echo "Keep the AArch64 runtime profile aligned across updates"
+echo "Keep the AArch64 repository profile aligned across updates"
 
 source "$OMARCHY_PATH/default/pacman/omarchy-aarch64.sh"
 
@@ -16,7 +16,6 @@ if [[ -f $OMARCHY_AARCH64_REPOSITORIES ]] &&
   sudo install -Dm644 "$repositories_stage" "$OMARCHY_AARCH64_REPOSITORIES"
 fi
 
-# The profile data is a normal signed package so policy changes reach existing
-# machines instead of being frozen into the image that installed them.
+# The repository policy is a normal signed package so exclusion changes reach
+# existing machines instead of being frozen into the image that installed them.
 omarchy-pkg-add omarchy-aarch64-config
-omarchy-apply-system-profile
