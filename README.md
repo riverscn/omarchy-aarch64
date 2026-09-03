@@ -25,16 +25,14 @@ Official tags are preserved at their original upstream commits. Adapted source
 releases follow the same version with an AArch64 revision suffix: for example,
 official `v4.0.1` corresponds to `v4.0.1-aarch64.1`.
 
-Scheduled automation treats the `omarchy` version already published in
-`pkgs.omarchy.org/stable` as the admission signal. It merges the matching
-official source tag, runs the CLI and applicable source/AArch64 tests, then
-publishes both the official tag/Release and its AArch64 adaptation. This sync
-workflow is the sole release authority; use its manual **Run workflow** action
-instead of publishing tags by hand. The cross-repository `omarchy-iso`
-assertion is intentionally excluded because this project does not consume the
-ISO. A merge conflict or test failure stops publication for human review. The
-package repository follows the adapted tag on its next scheduled
-synchronization.
+Stable source promotion is deliberately review-driven. For each accepted
+official release, update its versioned adaptation branch, run the source and
+package integration tests locally on native AArch64, merge the reviewed result
+into `main`, and create a new immutable `-aarch64.N` tag. The package repository
+then pins that exact adapted commit and advances the built artifacts through
+edge → rc → stable. No scheduled source workflow merges upstream changes,
+moves tags, or publishes Releases. This keeps upstream conflicts and runtime
+policy changes visible before they can reach users.
 
 ## The Omarchy Manual
 
