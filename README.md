@@ -4,6 +4,21 @@ Omarchy is a beautiful, modern & opinionated Linux distribution by DHH.
 
 Read more at [omarchy.org](https://omarchy.org).
 
+## Temporary AArch64 compatibility fork
+
+This fork follows the source-branch model of
+[`omacom/omarchy`](https://github.com/omacom/omarchy). `quattro` is the default
+development line, and versioned branches such as `v4-0-2` carry the minimal
+AArch64 compatibility layer for the corresponding official release line.
+Stable source revisions are identified by immutable `vX.Y.Z-aarch64.N` tags;
+stable, rc, edge, and dev are package channels rather than parallel source
+branches.
+
+The fork is transitional and does not maintain AArch64-specific menus, shell
+layout, or Hyprland keybindings. Once the remaining architecture-neutral
+runtime hooks are available upstream, packages and images can consume the
+official source directly and this fork can be archived.
+
 ## The Omarchy Manual
 
 The manual lives in [`manual/`](manual/), which is its authoritative source. It's
