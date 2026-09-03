@@ -7,7 +7,6 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 mise_work="$ROOT/install/user/mise-work.sh"
 pacman_setup="$ROOT/install/post-install/pacman.sh"
 hardware_setup="$ROOT/install/hardware/all.sh"
-service_setup="$ROOT/install/config/enable-services.sh"
 aur_update="$ROOT/bin/omarchy-update-aur-pkgs"
 pacman_refresh="$ROOT/bin/omarchy-refresh-pacman"
 channel_version="$ROOT/bin/omarchy-version-channel"
@@ -61,8 +60,6 @@ grep -Fxq 'default_entry: 2' "$aarch64_limine" ||
   fail "the Limine menu no longer follows the upstream Omarchy default entry"
 pass "AArch64 uses Omarchy's generated UKI boot entries and upstream Limine menu"
 
-grep -Fq '/usr/lib/systemd/system/power-profiles-daemon.service' "$service_setup" ||
-  fail "virtual profiles cannot omit the physical-machine power service"
 if grep -Fq 'omarchy-aarch64' "$aur_update"; then
   fail "AUR updates retain an unnecessary downstream package exception"
 fi
@@ -92,9 +89,6 @@ grep -Fq '/usr/share/omarchy/system/package-replacements' "$reinstall_packages" 
   fail "reinstalling defaults ignores package-name replacements"
 grep -Fq 'package_replacements[$package]' "$reinstall_packages" ||
   fail "reinstalling defaults does not apply package-name replacements"
-grep -Fq 'if o.cmd_present("powerprofilesctl") then' \
-  "$ROOT/default/hypr/autostart.lua" ||
-  fail "the VM still starts a power-profile service it deliberately omits"
 pass "virtual images keep package exclusions and replacements during updates"
 
 work=$(mktemp -d)

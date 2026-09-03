@@ -10,10 +10,7 @@ systemctl enable NetworkManager.service
 # DHCP/Wi-Fi association. Nothing in the session needs to block on the network.
 # Mirrors the systemd-networkd-wait-online mask in install/hardware/network.sh.
 systemctl mask NetworkManager-wait-online.service
-if [[ -f /usr/lib/systemd/system/power-profiles-daemon.service || \
-  -f /etc/systemd/system/power-profiles-daemon.service ]]; then
-  systemctl enable power-profiles-daemon.service
-fi
+systemctl enable power-profiles-daemon.service
 systemctl enable sddm.service
 # Kill one runaway app scope instead of letting reclaim thrashing take the
 # whole session down. [Install] pulls in systemd-oomd.socket via Also=, which
