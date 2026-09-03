@@ -38,7 +38,24 @@ function normalizeItem(id, raw) {
   }
 }
 
-function parseMenuJsonc(raw) {
+// A system profile is an overlay, so fields it omits must not be normalized to
+// empty values that erase the default entry underneath. Explicit fields still
+// use the same normalization as a complete menu item.
+function normalizeItemOverlay(id, raw) {
+  var normalized = normalizeItem(id, raw)
+  var out = { id: id }
+
+  for (var key in raw) {
+    if (Object.prototype.hasOwnProperty.call(normalized, key)) out[key] = normalized[key]
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, "action")
+      || Object.prototype.hasOwnProperty.call(raw, "target"))
+    out.kind = normalized.kind
+
+  return out
+}
+
+function parseMenuJsonc(raw, overlay) {
   var stripped = stripJsonc(raw)
   if (!stripped.trim()) return []
 
@@ -57,7 +74,7 @@ function parseMenuJsonc(raw) {
   for (var id in source) {
     var entry = source[id]
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue
-    out.push(normalizeItem(id, entry))
+    out.push(overlay ? normalizeItemOverlay(id, entry) : normalizeItem(id, entry))
   }
   return out
 }
@@ -484,6 +501,7 @@ if (typeof module !== "undefined") {
     stripJsonc: stripJsonc,
     normalizeAliases: normalizeAliases,
     normalizeItem: normalizeItem,
+    normalizeItemOverlay: normalizeItemOverlay,
     parseMenuJsonc: parseMenuJsonc,
     mergeMenuSources: mergeMenuSources,
     mergeAppRows: mergeAppRows,

@@ -37,6 +37,7 @@ Item {
 
   function refresh() {
     defaultMenuFile.reload()
+    systemMenuFile.reload()
     userMenuFile.reload()
     return "ok"
   }
@@ -44,12 +45,14 @@ Item {
   function ping() { return "ok" }
 
   property string fontFamily: Style.font.menuFamily
-  // JSONC menu definitions. The shell parses both at startup and merges
-  // the user file on top of the defaults, so the keybind → IPC → visible
-  // path doesn't have to shell out to bash + jq on every open.
+  // JSONC menu definitions. The shell parses all three at startup and merges
+  // system profile entries, then user entries, on top of the defaults. This
+  // keeps vendor/profile policy separate without taking the user's extension.
   property string defaultMenuPath: omarchyPath + "/default/omarchy/omarchy-menu.jsonc"
+  property string systemMenuPath: "/usr/share/omarchy/system/omarchy-menu.jsonc"
   property string userMenuPath: Quickshell.env("HOME") + "/.config/omarchy/extensions/omarchy-menu.jsonc"
   property var defaultMenuItems: []
+  property var systemMenuItems: []
   property var userMenuItems: []
   property bool opened: false
   property string mode: "menu"
@@ -236,15 +239,16 @@ Item {
     return MenuModel.normalizeItem(id, raw)
   }
 
-  function parseMenuJsonc(raw) {
-    return MenuModel.parseMenuJsonc(raw)
+  function parseMenuJsonc(raw, overlay) {
+    return MenuModel.parseMenuJsonc(raw, overlay || false)
   }
 
-  // Merge defaults + user extension. Later entries override earlier ones
-  // on a per-key basis (so the user can tweak label/icon/action without
-  // re-declaring the whole row).
+  // Merge defaults + system profile + user extension. Later entries override
+  // earlier ones on a per-key basis (so the user can still customize a
+  // profile-managed row without re-declaring the whole row).
   function rebuildItemsFromSources() {
-    var mergedMenu = MenuModel.mergeMenuSources(root.defaultMenuItems, root.userMenuItems)
+    var baseItems = root.defaultMenuItems.concat(root.systemMenuItems)
+    var mergedMenu = MenuModel.mergeMenuSources(baseItems, root.userMenuItems)
     root.providerRevision += 1
     root.providersLoaded = ({})
     root.providerQueue = []
@@ -916,15 +920,24 @@ Item {
     }
   }
 
-  // The JSONC sources are watched so live edits to the default file (or the
-  // user extension at ~/.config/omarchy/extensions/omarchy-menu.jsonc) take
-  // effect without restarting the shell.
+  // The JSONC sources are watched so package updates and user edits take effect
+  // without restarting the shell.
   FileView {
     id: defaultMenuFile
     path: root.defaultMenuPath
     watchChanges: true
     printErrors: false
     onLoaded: { root.defaultMenuItems = root.parseMenuJsonc(text()); root.rebuildItemsFromSources() }
+    onFileChanged: reload()
+  }
+
+  FileView {
+    id: systemMenuFile
+    path: root.systemMenuPath
+    watchChanges: true
+    printErrors: false
+    onLoaded: { root.systemMenuItems = root.parseMenuJsonc(text(), true); root.rebuildItemsFromSources() }
+    onLoadFailed: { root.systemMenuItems = []; root.rebuildItemsFromSources() }
     onFileChanged: reload()
   }
 

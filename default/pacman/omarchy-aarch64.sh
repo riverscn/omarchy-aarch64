@@ -1,6 +1,6 @@
-OMARCHY_AARCH64_PROFILE=/etc/omarchy-aarch64/profile
-OMARCHY_AARCH64_REPOSITORIES=/etc/omarchy-aarch64/repositories.conf
-OMARCHY_AARCH64_REPOSITORY=/etc/pacman.d/omarchy-aarch64.conf
+OMARCHY_AARCH64_PROFILE=${OMARCHY_AARCH64_PROFILE:-/etc/omarchy-aarch64/profile}
+OMARCHY_AARCH64_REPOSITORIES=${OMARCHY_AARCH64_REPOSITORIES:-/etc/omarchy-aarch64/repositories.conf}
+OMARCHY_AARCH64_REPOSITORY=${OMARCHY_AARCH64_REPOSITORY:-/etc/pacman.d/omarchy-aarch64.conf}
 
 omarchy_aarch64_active() {
   [[ -f $OMARCHY_AARCH64_PROFILE ]]

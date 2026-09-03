@@ -5,7 +5,9 @@ hl.on("hyprland.start", function()
 
   hl.exec_cmd("omarchy-launch-shell")
   hl.exec_cmd("omarchy-provision-first-run")
-  hl.exec_cmd("omarchy-powerprofiles-init")
+  if o.cmd_present("powerprofilesctl") then
+    hl.exec_cmd("omarchy-powerprofiles-init")
+  end
   hl.exec_cmd(o.launch("omarchy-hyprland-monitor-watch"))
   hl.exec_cmd(o.launch("udiskie --automount --no-notify --no-tray"))
 

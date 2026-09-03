@@ -3,7 +3,6 @@ if [[ ${OMARCHY_HARDWARE_PROFILE:-} == "aarch64-virt" ]] || {
     systemd-detect-virt --vm --quiet 2>/dev/null
 }; then
   run_logged "$OMARCHY_INSTALL/hardware/network.sh"
-  run_logged "$OMARCHY_INSTALL/hardware/input-group.sh"
   run_logged "$OMARCHY_INSTALL/hardware/virtual-machine.sh"
   return 0
 fi

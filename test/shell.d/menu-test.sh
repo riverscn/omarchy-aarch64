@@ -10,6 +10,12 @@ const menu = requireFromRoot('shell/plugins/menu/MenuModel.js')
 const menuQml = fs.readFileSync(path.join(root, 'shell/plugins/menu/Menu.qml'), 'utf8')
 const defaultMenuJsonc = fs.readFileSync(path.join(root, 'default/omarchy/omarchy-menu.jsonc'), 'utf8')
 
+assert(
+  menuQml.includes('property string systemMenuPath: "/usr/share/omarchy/system/omarchy-menu.jsonc"')
+    && menuQml.includes('root.defaultMenuItems.concat(root.systemMenuItems)'),
+  'menu loads a package-managed system profile between defaults and user entries'
+)
+
 const parsed = menu.parseMenuJsonc(`
 {
   // comment
@@ -56,6 +62,11 @@ const merged = menu.mergeMenuSources(parsed, user)
 assertEqual(merged.items['style.theme'].label, 'Theme picker', 'menu user entries override default entries')
 assertEqual(merged.items['style.theme'].order, 2, 'menu preserves original order on override')
 assert(merged.items.root, 'menu injects root when merging sources')
+
+const systemOverlay = menu.parseMenuJsonc('{"style.theme":{"when":"has-theme"}}', true)
+const systemMerged = menu.mergeMenuSources(parsed, systemOverlay)
+assertEqual(systemMerged.items['style.theme'].when, 'has-theme', 'menu system overlay applies declared fields')
+assertEqual(systemMerged.items['style.theme'].action, 'omarchy-theme-set', 'menu system overlay preserves omitted fields')
 
 assertEqual(menu.slugify('Power Saver!'), 'power-saver', 'menu slugifies provider rows')
 assertEqual(menu.pathFor(merged.items, 'style.theme'), 'Style › Theme picker', 'menu builds item paths')
